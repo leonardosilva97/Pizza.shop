@@ -17,12 +17,35 @@ import {
 } from "recharts";
 import colors from "tailwindcss/colors";
 import { getDailyRevenueInPeriod } from "../../../api/get-daily-revenue-in-period";
+import { Label } from "@radix-ui/react-label";
+import { DateRangePicker } from "../../../components/ui/date-range-picker";
+import { useMemo, useState } from "react";
+import { DateRange } from "react-day-picker";
+import {subDays} from 'date-fns'
+import { Loader2 } from "lucide-react";
 
 export function RevenueChart() {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 7),
+    to: new Date()
+  })
+
   const { data: dailyRevenuePeriod } = useQuery({
-    queryKey: ["metrics", "daily-revenue-in-period"],
-    queryFn: getDailyRevenueInPeriod,
+    queryKey: ["metrics", "daily-revenue-in-period", dateRange],
+    queryFn: () => getDailyRevenueInPeriod({
+      from: dateRange?.from,
+      to: dateRange?.to,
+    }),
   });
+
+  const chartData = useMemo(() => {
+    return dailyRevenuePeriod?.map(chartItem => {
+      return {
+        date: chartItem.date,
+        receipt: chartItem.receipt / 100
+      }
+    } )
+  }, [dailyRevenuePeriod])
 
   return (
     <Card className="col-span-6">
@@ -33,11 +56,15 @@ export function RevenueChart() {
           </CardTitle>
           <CardDescription>Receita diária no período</CardDescription>
         </div>
+        <div className="flex items-center gap-3">
+          <Label>Período</Label>
+          <DateRangePicker date={dateRange} onDateChange={setDateRange}/>
+        </div>
       </CardHeader>
-      {dailyRevenuePeriod && (
+      {chartData ? (
         <CardContent>
           <ResponsiveContainer width={"100%"} height={240}>
-            <LineChart data={dailyRevenuePeriod} style={{ fontSize: 12 }}>
+            <LineChart data={chartData} style={{ fontSize: 12 }}>
               <XAxis
                 dataKey={"date"}
                 tickLine={false}
@@ -66,6 +93,10 @@ export function RevenueChart() {
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
+      ): (
+        <div className="flex h-[240px] w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 text-muted-foreground animate-spin"/>
+      </div>
       )}
     </Card>
   );
